@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\StockProgressExport;
+use App\StockProgress;
 use App\StockProgressDetail;
 use Exception;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -311,11 +312,50 @@ class StockProgressController extends VoyagerBaseController
         return Voyager::view($view, compact('dataType', 'dataTypeContent', 'isModelTranslatable'));
     }
 
+    public function cronFetchData()
+    {
+        // Get dataStockProgress
+        $dataStockProgress = StockProgress::where('status', 'running')->get();
+        if (count($dataStockProgress)) {
+            foreach ($dataStockProgress as $stockProgress) {
+                // Get stock
+                $dataStock = DB::table('stocks')->where('id', $stockProgress->stock_id)->first();
+                if ($dataStock) {
+                    // Get time milestones
+                    $dataTimeMileStones = DB::table('time_milestones')->where('minutes', intval(gmdate("i")))->where('stock_id',$stockProgress->stock_id)->get();
+                    if (count($dataTimeMileStones)) {
+                        // Create a new client from the factory
+                        $client = ApiClientFactory::createApiClient();
+                        // Or use your own Guzzle client and pass it in
+                        $options = [/*...*/];
+                        $guzzleClient = new Client($options);
+                        $client = ApiClientFactory::createApiClient($guzzleClient);
+
+                        // Returns Scheb\YahooFinanceApi\Results\Quote
+                        $quote = $client->getQuote($dataStock->stock_symbol);
+
+                        //Getting data from yahoo finance
+                        $stockProgressDetails = new StockProgressDetail();
+                        $stockProgressDetails->stock_progress_id = $stockProgress->id;
+                        $stockProgressDetails->minutes = gmdate("i");
+                        $stockProgressDetails->hours = gmdate("H");
+                        $stockProgressDetails->date = gmdate("Y-m-d");
+                        $stockProgressDetails->value = $quote->getFiftyDayAverageChangePercent();
+                        $stockProgressDetails->last = 0;
+                        $stockProgressDetails->save();
+                    }
+                }
+            }
+        }
+    }
+
     public function startFetchData($id)
     {
         try {
             // Get dataStockProgress
             $dataStockProgress = DB::table('stock_progress')->where('id', $id)->first();
+            //clear old data
+            StockProgressDetail::where('stock_progress_id',$id)->delete();
             // Get stock
             $dataStock = DB::table('stocks')->where('id', $dataStockProgress->stock_id)->first();
             // Get time milestones
@@ -330,9 +370,8 @@ class StockProgressController extends VoyagerBaseController
 
             // Returns Scheb\YahooFinanceApi\Results\Quote
             $quote = $client->getQuote($dataStock->stock_symbol);
-            //Change status of StockProgress to run
-            DB::table('stock_progress')->where('id', $id)->update(['status' => 'running']);
-
+            //Change status and start_at of StockProgress to run
+            DB::table('stock_progress')->where('id', $id)->update(['status' => 'running','start_at'=>gmdate("Y/m/d H:i:s")]);
             //Getting data from yahoo finance
             $stockProgressDetails = new StockProgressDetail();
             $stockProgressDetails->stock_progress_id = $dataStockProgress->id;
@@ -342,12 +381,12 @@ class StockProgressController extends VoyagerBaseController
             $stockProgressDetails->value = $quote->getRegularMarketPreviousClose();
             $stockProgressDetails->last = 1;
             $stockProgressDetails->save();
-            //Create cronjob to auto fetch data
 
             //push success message
-            return redirect()->back()->with(['message' => $dataStockProgress->name." is running.", 'alert-type' => 'success']);
+            return redirect()->back()->with(['message' => $dataStockProgress->name . " is running.", 'alert-type' => 'success']);
 
         } catch (Exception $e) {
+            return($e);die('xxx');
             return redirect()->back()->with(['message' => "Something wrong!.", 'alert-type' => 'error']);
 
         }
@@ -364,12 +403,12 @@ class StockProgressController extends VoyagerBaseController
             $dataTimeMileStones = DB::table('time_milestones')->where('stock_id', $dataStockProgress->stock_id)->get();
 
             //Change status of StockProgress to stop
-            DB::table('stock_progress')->where('id', $id)->update(['status' => 'stopped']);
+            DB::table('stock_progress')->where('id', $id)->update(['status' => 'stopped','stop_at'=>gmdate("Y/m/d H:i:s")]);
 
             //Stop cronjob to auto fetch data
 
             //push success message
-            return redirect()->back()->with(['message' => $dataStockProgress->name." is stopped.", 'alert-type' => 'success']);
+            return redirect()->back()->with(['message' => $dataStockProgress->name . " is stopped.", 'alert-type' => 'success']);
 
         } catch (Exception $e) {
             return redirect()->back()->with(['message' => "Something wrong!.", 'alert-type' => 'error']);
@@ -384,7 +423,7 @@ class StockProgressController extends VoyagerBaseController
             $dataStockProgress = DB::table('stock_progress')->where('id', $id)->first();
             // Get stock
             $dataStock = DB::table('stocks')->where('id', $dataStockProgress->stock_id)->first();
-            return Excel::download(new StockProgressExport($id), $dataStockProgress->name.'.xlsx');
+            return Excel::download(new StockProgressExport($id), $dataStockProgress->name . '.xlsx');
         } catch (Exception $e) {
             return redirect()->back()->with(['message' => "Something wrong!.", 'alert-type' => 'error']);
 
