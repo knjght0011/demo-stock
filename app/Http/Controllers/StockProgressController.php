@@ -17,12 +17,12 @@ use TCG\Voyager\Events\BreadDataRestored;
 use TCG\Voyager\Events\BreadDataUpdated;
 use TCG\Voyager\Events\BreadImagesDeleted;
 use TCG\Voyager\Facades\Voyager;
-use TCG\Voyager\Http\Controllers\Traits\BreadRelationshipParser;
-use TCG\Voyager\Http\Controllers\VoyagerBaseController;
 use Scheb\YahooFinanceApi\ApiClient;
 use Scheb\YahooFinanceApi\ApiClientFactory;
 use GuzzleHttp\Client;
 use Maatwebsite\Excel\Facades\Excel;
+use TCG\Voyager\Http\Controllers\Traits\BreadRelationshipParser;
+use TCG\Voyager\Http\Controllers\VoyagerBaseController;
 
 class StockProgressController extends VoyagerBaseController
 {
@@ -321,8 +321,13 @@ class StockProgressController extends VoyagerBaseController
                 // Get stock
                 $dataStock = DB::table('stocks')->where('id', $stockProgress->stock_id)->first();
                 if ($dataStock) {
+                    //Current Date Time
+                    $currentDateTime = new \DateTime();
+                    $currentMinute = $currentDateTime->format('i');
+                    $currentHour = $currentDateTime->format('H');
+                    $currentDate = $currentDateTime->format('Y-m-d');
                     // Get time milestones
-                    $dataTimeMileStones = DB::table('time_milestones')->where('minutes', intval(gmdate("i")))->where('stock_id',$stockProgress->stock_id)->get();
+                    $dataTimeMileStones = DB::table('time_milestones')->where('minutes', intval($currentMinute))->where('stock_id',$stockProgress->stock_id)->get();
                     if (count($dataTimeMileStones)) {
                         // Create a new client from the factory
                         $client = ApiClientFactory::createApiClient();
@@ -333,13 +338,12 @@ class StockProgressController extends VoyagerBaseController
 
                         // Returns Scheb\YahooFinanceApi\Results\Quote
                         $quote = $client->getQuote($dataStock->stock_symbol);
-
                         //Getting data from yahoo finance
                         $stockProgressDetails = new StockProgressDetail();
                         $stockProgressDetails->stock_progress_id = $stockProgress->id;
-                        $stockProgressDetails->minutes = gmdate("i");
-                        $stockProgressDetails->hours = gmdate("H");
-                        $stockProgressDetails->date = gmdate("Y-m-d");
+                        $stockProgressDetails->minutes = $currentMinute;
+                        $stockProgressDetails->hours = $currentHour;
+                        $stockProgressDetails->date = $currentDate;
                         $stockProgressDetails->value = $quote->getFiftyDayAverageChangePercent();
                         $stockProgressDetails->last = 0;
                         $stockProgressDetails->save();
@@ -371,22 +375,34 @@ class StockProgressController extends VoyagerBaseController
             // Returns Scheb\YahooFinanceApi\Results\Quote
             $quote = $client->getQuote($dataStock->stock_symbol);
             //Change status and start_at of StockProgress to run
-            DB::table('stock_progress')->where('id', $id)->update(['status' => 'running','start_at'=>gmdate("Y/m/d H:i:s")]);
+            $start_at = new \DateTime();
+//            $start_at->setTimezone(new \DateTimeZone('America/New_York'));
+            DB::table('stock_progress')->where('id', $id)->update(['status' => 'running','start_at'=>$start_at]);
+            //Current Date Time
+            $currentDateTime = new \DateTime();
+            $currentMinute = $currentDateTime->format('i');
+            $currentHour = $currentDateTime->format('H');
+            $currentDate = $currentDateTime->format('Y-m-d');
             //Getting data from yahoo finance
             $stockProgressDetails = new StockProgressDetail();
             $stockProgressDetails->stock_progress_id = $dataStockProgress->id;
-            $stockProgressDetails->minutes = gmdate("i");
-            $stockProgressDetails->hours = gmdate("H");
-            $stockProgressDetails->date = gmdate("Y-m-d");
+            $stockProgressDetails->minutes = $currentMinute;
+            $stockProgressDetails->hours = $currentHour;
+            $stockProgressDetails->date = $currentDate;
             $stockProgressDetails->value = $quote->getRegularMarketPreviousClose();
             $stockProgressDetails->last = 1;
+            $stockProgressDetails->mark = $quote->getRegularMarketPrice()?$quote->getRegularMarketPrice():0;
+            $stockProgressDetails->bid = $quote->getBid()?$quote->getBid():0;
+            $stockProgressDetails->ask = $quote->getAsk()?$quote->getAsk():0;
+            $stockProgressDetails->atr = $quote->getFiftyDayAverage()?$quote->getFiftyDayAverage():0;
+            $stockProgressDetails->open_price_per_1_min = $quote->getTwoHundredDayAverage()?$quote->getTwoHundredDayAverage():0;
+            $stockProgressDetails->atr_per_1_min = $quote->getTwoHundredDayAverage()?$quote->getTwoHundredDayAverage():0;
             $stockProgressDetails->save();
 
             //push success message
             return redirect()->back()->with(['message' => $dataStockProgress->name . " is running.", 'alert-type' => 'success']);
 
         } catch (Exception $e) {
-            return($e);die('xxx');
             return redirect()->back()->with(['message' => "Something wrong!.", 'alert-type' => 'error']);
 
         }
@@ -401,9 +417,10 @@ class StockProgressController extends VoyagerBaseController
             $dataStock = DB::table('stocks')->where('id', $dataStockProgress->stock_id)->first();
             // Get time milestones
             $dataTimeMileStones = DB::table('time_milestones')->where('stock_id', $dataStockProgress->stock_id)->get();
+            $stop_at = new \DateTime();
 
             //Change status of StockProgress to stop
-            DB::table('stock_progress')->where('id', $id)->update(['status' => 'stopped','stop_at'=>gmdate("Y/m/d H:i:s")]);
+            DB::table('stock_progress')->where('id', $id)->update(['status' => 'stopped','stop_at'=>$stop_at]);
 
             //Stop cronjob to auto fetch data
 

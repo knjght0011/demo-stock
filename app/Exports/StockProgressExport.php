@@ -43,7 +43,7 @@ class StockProgressExport implements  Responsable, FromView
         $timeMileStonesOfStock =  TimeMilestone::where('stock_id',$stockProgressData->stock_id)->orderBy( 'minutes' )->get();
         $stockProgressDetailData =  StockProgressDetail::select('last','value', 'minutes', 'hours','date')->where('stock_progress_id',$this->id)->where('last',0)->get();
         $stockProgressDetailHoursData =  StockProgressDetail::select('hours')->where('stock_progress_id',$this->id)->where('last',0)->groupBy('hours')->get();
-        $stockProgressDetailLast =  StockProgressDetail::select('value')->where('stock_progress_id',$this->id)->where('last',1)->first();
+        $stockProgressDetailLast =  StockProgressDetail::select('value','mark','bid','ask','atr','open_price_per_1_min','atr_per_1_min')->where('stock_progress_id',$this->id)->where('last',1)->first();
         return view('exports.stock-progress', [
         'stockProgressData' => $stockProgressData,
         'timeMileStonesOfStock' => $timeMileStonesOfStock,

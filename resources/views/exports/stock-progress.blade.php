@@ -1,7 +1,7 @@
 <table>
     <thead>
     <tr>
-        <th>Quote on {{$stockProgressData->start_at}} - {{$stockProgressData->stop_at}}</th>
+        <th>Quote on {{$stockProgressData->start_at}} to {{$stockProgressData->stop_at}}</th>
     </tr>
     <tr>
         <th>import to excel list</th>
@@ -21,12 +21,12 @@
     <tr>
         <td>{{$stockData->stock_symbol}}</td>
         <td>{{$stockProgressDetailLast->value}}</td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td></td>
+        <td>{{$stockProgressDetailLast->mark}}</td>
+        <td>{{$stockProgressDetailLast->bid}}</td>
+        <td>{{$stockProgressDetailLast->ask}}</td>
+        <td>{{$stockProgressDetailLast->atr}}</td>
+        <td>{{$stockProgressDetailLast->open_price_per_1_min}}</td>
+        <td>{{$stockProgressDetailLast->atr_per_1_min}}</td>
     </tr>
     <tr></tr>
     <tr></tr>

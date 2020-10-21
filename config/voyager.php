@@ -144,7 +144,9 @@ return [
         ],
 
         'widgets' => [
-
+            'App\\Http\\Widgets\\UserDimmer',
+            'App\\Http\\Widgets\\PostDimmer',
+            'App\\Http\\Widgets\\PageDimmer',
         ],
 
     ],

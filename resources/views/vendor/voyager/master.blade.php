@@ -114,7 +114,15 @@ if (\Illuminate\Support\Str::startsWith(Auth::user()->avatar, 'http://') || \Ill
 @include('voyager::partials.app-footer')
 
 <!-- Javascript Libs -->
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-5TDXFJFY6M"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
 
+        gtag('config', 'G-5TDXFJFY6M');
+    </script>
 
 <script type="text/javascript" src="{{ voyager_asset('js/app.js') }}"></script>
 
